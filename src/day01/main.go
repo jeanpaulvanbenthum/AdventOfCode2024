@@ -18,6 +18,7 @@ func main() {
 }
 
 func getLocationIds() ([]int, []int) {
+	//file, err := os.Open("example.txt")
 	file, err := os.Open("input1.txt")
 	if err != nil {
 		log.Fatalln(err)
