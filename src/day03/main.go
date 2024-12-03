@@ -1,78 +1,80 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/gookit/goutil/mathutil"
 	"log"
 	"os"
-	"sort"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
 func main() {
-	list1, list2 := getLocationIds()
-	part1(list1, list2)
-	part2(list1, list2)
+	program := getProgram()
+	fmt.Print("Part 1: ")
+	runProgram(program, true)
+
+	fmt.Print("Part 2: ")
+	runProgram(program, false)
 }
 
-func getLocationIds() ([]int, []int) {
-	file, err := os.Open("input1.txt")
+func runProgram(program string, alwaysEnabled bool) {
+	instructions := getInstructions(program)
+
+	var result int
+	var enabled bool
+	enabled = true
+	for _, instruction := range instructions {
+		if strings.Contains(instruction, "do()") {
+			enabled = true
+			continue
+		}
+		if strings.Contains(instruction, "don't()") {
+			enabled = false
+			continue
+		}
+
+		if enabled || alwaysEnabled {
+			_, arg1, arg2 := parseInstruction(instruction)
+
+			result += mul(arg1, arg2)
+		}
+	}
+
+	fmt.Printf("The total of all the multiplications is: %d\n\n", result)
+}
+
+func getProgram() string {
+	content, err := os.ReadFile("input.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
 
-		}
-	}(file)
-
-	list1 := make([]int, 0)
-	list2 := make([]int, 0)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		ids := strings.Split(line, "   ")
-		id1, _ := strconv.Atoi(ids[0])
-		id2, _ := strconv.Atoi(ids[1])
-		list1 = append(list1, int(id1))
-		list2 = append(list2, int(id2))
-	}
-
-	sort.Ints(list1)
-	sort.Ints(list2)
-
-	return list1, list2
+	return string(content)
 }
 
-func part1(list1 []int, list2 []int) {
-	var delta int
-	for i, _ := range list1 {
-		delta += mathutil.Abs(list1[i] - list2[i])
-	}
+func getInstructions(program string) []string {
+	re := regexp.MustCompile(`(mul\(\d{1,3},\d{1,3}\)|do\(\)|don't\(\))`)
+	matches := re.FindAllString(program, -1)
 
-	fmt.Printf("The total distane between the lists is: %d\n\n", delta)
+	return matches
 }
 
-func part2(list1 []int, list2 []int) {
-	var similarityScore int
-	for i, _ := range list1 {
-		number := list1[i]
-		similarityScore += number * occurrences(list2, number)
+func parseInstruction(instruction string) (string, int, int) {
+	// Extract function name and arguments from the instruction
+	re := regexp.MustCompile(`(\w+)\((\d+),(\d+)\)`)
+	matches := re.FindStringSubmatch(instruction)
+	if len(matches) != 4 {
+		log.Fatalf("Invalid input: %s", instruction)
 	}
 
-	fmt.Printf("The total similarity score is: %d\n\n", similarityScore)
+	funcName := matches[1]
+	arg1, _ := strconv.Atoi(matches[2])
+	arg2, _ := strconv.Atoi(matches[3])
+
+	return funcName, arg1, arg2
 }
 
-func occurrences(list []int, value int) int {
-	count := 0
-	for _, v := range list {
-		if v == value {
-			count++
-		}
-	}
-	return count
+func mul(a, b int) int {
+	return a * b
 }

@@ -6,19 +6,18 @@ import (
 	"github.com/gookit/goutil/mathutil"
 	"log"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 func main() {
-	list1, list2 := getLocationIds()
-	part1(list1, list2)
-	part2(list1, list2)
+	reports(false)
+	reports(true)
 }
 
-func getLocationIds() ([]int, []int) {
-	file, err := os.Open("input1.txt")
+func reports(tolerate bool) {
+	file, err := os.Open("input.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -28,51 +27,109 @@ func getLocationIds() ([]int, []int) {
 
 		}
 	}(file)
-
-	list1 := make([]int, 0)
-	list2 := make([]int, 0)
-
 	scanner := bufio.NewScanner(file)
+	safeCounter := 0
+
+scannerLoop:
 	for scanner.Scan() {
-		line := scanner.Text()
-		ids := strings.Split(line, "   ")
-		id1, _ := strconv.Atoi(ids[0])
-		id2, _ := strconv.Atoi(ids[1])
-		list1 = append(list1, int(id1))
-		list2 = append(list2, int(id2))
-	}
+		report := scanner.Text()
+		originalLevels := stringSliceToIntSlice(strings.Split(report, " "))
 
-	sort.Ints(list1)
-	sort.Ints(list2)
+		var newLevels [][]int
+		if tolerate {
+			newLevels = generateSlices(originalLevels)
+		} else {
+			newLevels = [][]int{originalLevels}
+		}
 
-	return list1, list2
-}
+	tolerateLoop:
+		for _, levels := range newLevels {
+			if !checkIncreasingOrDecreasing(levels) {
+				continue tolerateLoop
+			}
 
-func part1(list1 []int, list2 []int) {
-	var delta int
-	for i, _ := range list1 {
-		delta += mathutil.Abs(list1[i] - list2[i])
-	}
+			for i := range levels {
+				if i == 0 {
+					diff := mathutil.Abs(levels[1] - levels[0])
 
-	fmt.Printf("The total distane between the lists is: %d\n\n", delta)
-}
+					// Safe when any two adjacent levels differ by at least one and at most three.
+					if diff < 1 || diff > 3 {
+						continue tolerateLoop
+					}
+				}
 
-func part2(list1 []int, list2 []int) {
-	var similarityScore int
-	for i, _ := range list1 {
-		number := list1[i]
-		similarityScore += number * occurrences(list2, number)
-	}
+				if i > 0 && i < len(levels)-1 {
+					diff := mathutil.Abs(levels[i] - levels[i-1])
+					if diff < 1 || diff > 3 {
+						continue tolerateLoop
+					}
+					diff = mathutil.Abs(levels[i] - levels[i+1])
+					if diff < 1 || diff > 3 {
+						continue tolerateLoop
+					}
+				}
 
-	fmt.Printf("The total similarity score is: %d\n\n", similarityScore)
-}
+				if i == len(levels)-1 {
+					diff := mathutil.Abs(levels[i] - levels[i-1])
 
-func occurrences(list []int, value int) int {
-	count := 0
-	for _, v := range list {
-		if v == value {
-			count++
+					// Safe when any two adjacent levels differ by at least one and at most three.
+					if diff < 1 || diff > 3 {
+						continue tolerateLoop
+					}
+				}
+			}
+
+			safeCounter++
+			continue scannerLoop
 		}
 	}
-	return count
+
+	fmt.Printf("Safe couter is: %d\n\n", safeCounter)
+}
+
+func stringSliceToIntSlice(strings []string) []int {
+	var intSlice []int
+	for _, stringVal := range strings {
+		// Convert each string to an integer
+		integer, err := strconv.Atoi(stringVal)
+		if err != nil {
+			log.Fatalf("Error converting %s to int: %v\n\n", stringVal, err)
+		}
+		intSlice = append(intSlice, integer)
+	}
+
+	return intSlice
+}
+
+func checkIncreasingOrDecreasing(values []int) bool {
+	ascendingValues := make([]int, len(values))
+	descendingValues := make([]int, len(values))
+	copy(ascendingValues, values)
+	copy(descendingValues, values)
+
+	slices.Sort(ascendingValues)
+	if slices.Compare(ascendingValues, values) == 0 {
+		return true
+	}
+
+	slices.Sort(descendingValues)
+	slices.Reverse(descendingValues)
+	if slices.Compare(descendingValues, values) == 0 {
+		return true
+	}
+
+	return false
+}
+
+func generateSlices(original []int) [][]int {
+	result := make([][]int, 0, len(original))
+	result = append(result, original)
+
+	for i := range original {
+		newSlice := append([]int{}, original[:i]...)
+		newSlice = append(newSlice, original[i+1:]...)
+		result = append(result, newSlice)
+	}
+
+	return result
 }
